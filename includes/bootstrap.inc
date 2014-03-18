@@ -759,15 +759,15 @@ function _drush_bootstrap_drupal_site_validate() {
     $_SERVER['SERVER_PORT'] = $drupal_base_url['port'];
 
     if (array_key_exists('path', $drupal_base_url)) {
-      $_SERVER['PHP_SELF'] = $drupal_base_url['path'] . '/index.php';
+      $_SERVER['PHP_SELF'] = $drupal_base_url['path'] . '/app.php';
     }
     else {
-      $_SERVER['PHP_SELF'] = '/index.php';
+      $_SERVER['PHP_SELF'] = '/app.php';
     }
   }
   else {
     $_SERVER['HTTP_HOST'] = 'default';
-    $_SERVER['PHP_SELF'] = '/index.php';
+    $_SERVER['PHP_SELF'] = '/app.php';
   }
 
   $_SERVER['REQUEST_URI'] = $_SERVER['SCRIPT_NAME'] = $_SERVER['PHP_SELF'];

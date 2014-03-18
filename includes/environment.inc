@@ -248,10 +248,10 @@ function drush_conf_path($server_uri, $require_settings = TRUE) {
   }
   $server_host = $parsed_uri['host'];
   if (array_key_exists('path', $parsed_uri)) {
-    $server_uri = $parsed_uri['path'] . '/index.php';
+    $server_uri = $parsed_uri['path'] . '/app.php';
   }
   else {
-    $server_uri = "/index.php";
+    $server_uri = "/app.php";
   }
   $confdir = 'sites';
 
@@ -330,7 +330,7 @@ function drush_locate_root($start_path = NULL) {
  *   a Drupal root.
  */
 function drush_valid_drupal_root($path) {
-  if (!empty($path) && is_dir($path) && file_exists($path . '/index.php')) {
+  if (!empty($path) && is_dir($path) && file_exists($path . '/app.php')) {
     // Drupal 8 root. Additional check for the presence of core/composer.json to
     // grant it is not a Drupal 7 site with a base folder named "core".
     $candidate = 'core/includes/common.inc';
