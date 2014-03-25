@@ -5,6 +5,7 @@ branches:
     - master
     - 6.x
     - 5.x
+    - sql
 language: php
 php:
   - 5.3

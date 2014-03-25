@@ -1174,6 +1174,9 @@ function _drush_command_translate($source) {
  *       of the data items in it.
  * - engines: declares information on Drush engines the command will load.
  *   Available engines can vary by command type.
+ *
+ * @return bool|array
+ *   A command definition.
  */
 function drush_parse_command() {
   $args = drush_get_arguments();
@@ -1327,9 +1330,6 @@ function drush_command_normalize_name($command_name) {
  * - The ".drush" folder in the user's HOME folder.
  * - /drush and sites/all/drush in current Drupal site.
  * - Folders belonging to enabled modules in the current Drupal site.
- *
- * Commands implementing hook_drush_load() in MODULE.drush.load.inc with
- * a return value FALSE will not be loaded.
  *
  * A Drush command file is a file that matches "*.drush.inc".
  *
@@ -1514,17 +1514,6 @@ function _drush_add_commandfiles($searchpath, $phase = NULL, $reset = FALSE) {
         if (!empty($drupal_version) && ($drupal_version != drush_drupal_major_version())) {
           $load_command = FALSE;
         }
-        else {
-          $load_test_inc = dirname($filename) . "/" . $module . ".drush.load.inc";
-          if (file_exists($load_test_inc)) {
-            include_once($load_test_inc);
-            $module_versionless = preg_replace('/\.d([0-9]+)$/', '', $module);
-            $load_test_func = $module_versionless . "_drush_load";
-            if (function_exists($load_test_func)) {
-              $load_command = $load_test_func($phase);
-            }
-          }
-        }
         if ($load_command) {
           // Only try to require if the file exists. If not, a file from the
           // command file cache may not be available anymore, in which case
@@ -1566,6 +1555,7 @@ function drush_filename_blacklist() {
       $blacklist[] = 'drush' . $v;
     }
   }
+  $blacklist = array_merge($blacklist, drush_get_option_list('exclude'));
   return $blacklist;
 }
 
