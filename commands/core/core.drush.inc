@@ -556,17 +556,19 @@ function _core_site_status_table($project = '') {
     $status_table['drupal-version'] = drush_drupal_version();
     if ($site_root = drush_get_context('DRUSH_DRUPAL_SITE_ROOT')) {
       $status_table['uri'] = drush_get_context('DRUSH_URI');
-      if ($sql = drush_sql_get_class()) {
-        $status_table['db-driver'] = $sql->db_spec['driver'];
-        if (!empty($sql->db_spec['unix_socket'])) {
-          $status_table['db-socket'] = $sql->db_spec['unix_socket'];
+      try {
+        $sql = drush_sql_get_class();
+        $db_spec = $sql->db_spec();
+        $status_table['db-driver'] = $db_spec['driver'];
+        if (!empty($db_spec['unix_socket'])) {
+          $status_table['db-socket'] = $db_spec['unix_socket'];
         }
         else {
-          $status_table['db-hostname'] = $sql->db_spec['host'];
+          $status_table['db-hostname'] = $db_spec['host'];
         }
-        $status_table['db-username'] = $sql->db_spec['username'];
-        $status_table['db-name'] = $sql->db_spec['database'];
-        $status_table['db-password'] = $sql->db_spec['password'];
+        $status_table['db-username'] = $db_spec['username'];
+        $status_table['db-name'] = $db_spec['database'];
+        $status_table['db-password'] = $db_spec['password'];
         if ($phase > DRUSH_BOOTSTRAP_DRUPAL_DATABASE) {
           $status_table['db-status'] = dt('Connected');
           if ($phase > DRUSH_BOOTSTRAP_DRUPAL_FULL) {
@@ -577,6 +579,9 @@ function _core_site_status_table($project = '') {
             }
           }
         }
+      }
+      catch (Exception $e) {
+        // Don't worry be happy.
       }
     }
     if (drush_has_boostrapped(DRUSH_BOOTSTRAP_DRUPAL_FULL)) {
@@ -1005,7 +1010,7 @@ function drush_core_php_script() {
   }
 
   if ($script == '-') {
-    eval(stream_get_contents(STDIN));
+    return eval(stream_get_contents(STDIN));
   }
   elseif (file_exists($script)) {
     $found = $script;
@@ -1060,7 +1065,7 @@ function drush_core_php_script() {
     // just the arguments that are relevant using drush_shift().
     drush_set_context('DRUSH_SHIFT_SKIP', 2);
     if (_drush_core_eval_shebang_script($found) === FALSE) {
-      include($found);
+      return include($found);
     }
   }
 }

@@ -306,6 +306,7 @@ function drush_get_global_options($brief = FALSE) {
     $options['ssh-options']         = array('never-propagate' => TRUE, 'description' => 'A string of extra options that will be passed to the ssh command', 'example-value' => '-p 100');
     $options['editor']              = array('never-propagate' => TRUE, 'description' => 'A string of bash which launches user\'s preferred text editor. Defaults to ${VISUAL-${EDITOR-vi}}.', 'example-value' => 'vi');
     $options['db-url']              = array('hidden' => TRUE, 'description' => 'A Drupal 6 style database URL. Used by various commands.', 'example-value' => 'mysql://root:pass@127.0.0.1/db');
+    $options['drush-coverage']      = array('hidden' => TRUE, 'never-post' => TRUE, 'propagate-cli-value' => TRUE, 'description' => 'File to save code coverage data into.');
 
     $command = array(
       'options' => $options,
@@ -1088,7 +1089,7 @@ function drush_preflight_command_dispatch() {
   drush_command_default_options($command);
 
   // If the command sets the 'strict-option-handling' flag, then we will remove
-  // any cli options that appear after the command name form the 'cli' context.
+  // any cli options that appear after the command name from the 'cli' context.
   // The cli options that appear before the command name are stored in the
   // 'DRUSH_GLOBAL_CLI_OPTIONS' context, so we will just overwrite the cli context
   // with this, after doing the neccessary fixup from short-form to long-form options.
@@ -1365,9 +1366,9 @@ function drush_do_command_redispatch($command, $args = array(), $remote_host = N
   }
 
   // Run the command in a new process.
-  drush_log(dt('Begin redispatch via invoke process'));
+  drush_log(dt('Begin redispatch via drush_invoke_process().'));
   $values = drush_invoke_process('@self', $command_name, $args, $command_options, $backend_options);
-  drush_log(dt('Invoke process is complete'));
+  drush_log(dt('End redispatch via drush_invoke_process().'));
 
   return $values;
 }

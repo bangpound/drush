@@ -518,7 +518,7 @@ function _drush_bootstrap_drush() {
 }
 
 function _drush_bootstrap_output_prepare() {
-  $backend = drush_set_context('DRUSH_BACKEND', drush_get_option('backend'));
+  $backend = drush_get_context('DRUSH_BACKEND');
 
   // Pipe implies quiet.
   $quiet = drush_set_context('DRUSH_QUIET', drush_get_option(array('quiet', 'pipe')));
@@ -615,11 +615,12 @@ function _drush_bootstrap_global_options() {
   // Debug implies verbose
   drush_set_context('DRUSH_VERBOSE',     drush_get_option(array('verbose', 'debug'), FALSE));
   drush_set_context('DRUSH_DEBUG', drush_get_option('debug'));
+  drush_set_context('DRUSH_SIMULATE',    drush_get_option('simulate', FALSE));
+  drush_set_context('DRUSH_BACKEND', drush_get_option('backend'));
 
   // Backend implies affirmative unless negative is explicitly specified
   drush_set_context('DRUSH_NEGATIVE',    drush_get_option('no', FALSE));
   drush_set_context('DRUSH_AFFIRMATIVE', drush_get_option(array('yes', 'pipe'), FALSE) || (drush_get_context('DRUSH_BACKEND') && !drush_get_context('DRUSH_NEGATIVE')));
-  drush_set_context('DRUSH_SIMULATE',    drush_get_option('simulate', FALSE));
 
   // Suppress colored logging if --nocolor option is explicitly given or if
   // terminal does not support it.
@@ -851,7 +852,7 @@ function _drush_bootstrap_drupal_configuration() {
 /**
  * Validate the DRUSH_BOOTSTRAP_DRUPAL_DATABASE phase
  *
- * Attempt to making a working database connection using the
+ * Attempt to make a working database connection using the
  * database credentials that were loaded during the previous
  * phase.
  */
@@ -944,7 +945,7 @@ function drush_bootstrap_value($context, $value = null) {
 }
 
 /**
- * Prepare drush for bootstrap
+ * Prepare Drush for bootstrap
  *
  * All pre-flight checks and includes necessary to begin the bootstrap
  * process.
@@ -1087,6 +1088,42 @@ function drush_shutdown() {
   // This way drush_return_status() will always be the last shutdown function (unless other shutdown functions register shutdown functions...)
   // and won't prevent other registered shutdown functions (IE from numerous cron methods) from running by calling exit() before they get a chance.
   register_shutdown_function('drush_return_status');
+}
+
+/**
+ * Shutdown function to save code coverage data.
+ */
+function drush_coverage_shutdown() {
+  if ($file_name = drush_get_context('DRUSH_CODE_COVERAGE', FALSE)) {
+    $data = xdebug_get_code_coverage();
+    xdebug_stop_code_coverage();
+
+    // If coverage dump file contains anything, merge in the old data before
+    // saving. This happens if the current drush command invoked another drush
+    // command.
+    if (file_exists($file_name) && $content = file_get_contents($file_name)) {
+      $merge_data = unserialize($content);
+      if (is_array($merge_data)) {
+        foreach ($merge_data as $file => $lines) {
+          if (!isset($data[$file])) {
+            $data[$file] = $lines;
+          }
+          else {
+            foreach ($lines as $num => $executed) {
+              if (!isset($data[$file][$num])) {
+                $data[$file][$num] = $executed;
+              }
+              else {
+                $data[$file][$num] = ($executed == 1 ? $executed : $data[$file][$num]);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    file_put_contents($file_name, serialize($data));
+  }
 }
 
 function drush_return_status() {

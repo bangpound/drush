@@ -359,8 +359,13 @@ function _drush_invoke_hooks($command, $args) {
         $available_rollbacks[] = $func . '_rollback';
         $completed[] = $func;
         drush_log(dt("Calling hook !hook", array('!hook' => $func)), 'debug');
-        $result = call_user_func_array($func, $args);
-        drush_log(dt("Returned from hook !hook", array('!hook' => $func)), 'debug');
+        try {
+          $result = call_user_func_array($func, $args);
+          drush_log(dt("Returned from hook !hook", array('!hook' => $func)), 'debug');
+        }
+        catch (Exception $e) {
+          drush_set_error('DRUSH_EXECUTION_EXCEPTION', $e->getMessage());
+        }
         // If there is an error, break out of the foreach
         // $variations and foreach $callback_list
         if (drush_get_error() || ($result === FALSE)) {
@@ -1206,8 +1211,8 @@ function drush_parse_command() {
 }
 
 /**
- * Called by drush_parse_command.  If a command is dispatched
- * directly by drush_dispatch, then drush_dispatch will call
+ * Called by drush_parse_command().  If a command is dispatched
+ * directly by drush_dispatch(), then drush_dispatch() will call
  * this function.
  */
 function _drush_prepare_command(&$command, $arguments = array()) {
@@ -1546,7 +1551,7 @@ function _drush_add_commandfiles($searchpath, $phase = NULL, $reset = FALSE) {
 }
 
 /**
- * Substrings to ignore during commandfile searching.
+ * Substrings to ignore during commandfile and site alias searching.
  */
 function drush_filename_blacklist() {
   $blacklist = array('.', '..', 'drush_make', 'examples', 'tests', 'disabled', 'gitcache', 'cache');

@@ -69,7 +69,12 @@ function sql_drush_command() {
   $items['sql-connect'] = array(
     'description' => 'A string for connecting to the DB.',
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
-    'options' => $options + $db_url,
+    'options' => $options + $db_url + array(
+        'extra' => array(
+          'description' => 'Add custom options to the mysql command.',
+          'example-value' => '--skip-column-names',
+        ),
+      ),
     'examples' => array(
       '`drush sql-connect` < example.sql' => 'Import sql statements from a file into the current database.',
     ),
@@ -215,13 +220,12 @@ function sql_drush_command() {
   $items['sql-cli'] = array(
     'description' => "Open a SQL command-line interface using Drupal's credentials.",
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
-    'options' => array(
-      'A' => 'Skip reading table information. This gives a quicker start of mysql.',
-    ) + $options + $db_url,
+    // 'options' => $options + $db_url,
+    'allow-additional-options' => array('sql-connect'),
     'aliases' => array('sqlc'),
     'examples' => array(
       'drush sql-cli' => "Open a SQL command-line interface using Drupal's credentials.",
-      'drush sql-cli -A' => "Open a SQL command-line interface using Drupal's credentials and skip reading table information.",
+      'drush sql-cli --extra=-A' => "Open a SQL CLI and skip reading table information.",
     ),
     'remote-tty' => TRUE,
   );
@@ -302,7 +306,7 @@ function drush_sql_conf() {
   }
   else {
     $sql = drush_sql_get_class();
-    return $sql->db_spec;
+    return $sql->db_spec();
   }
 }
 
@@ -312,7 +316,7 @@ function drush_sql_conf() {
 function drush_sql_connect() {
   drush_sql_bootstrap_further();
   $sql = drush_sql_get_class();
-  return $sql->connect();
+  return $sql->connect(FALSE);
 }
 
 /**
@@ -320,10 +324,11 @@ function drush_sql_connect() {
  */
 function drush_sql_create() {
   $sql = drush_sql_get_class();
+  $db_spec = $sql->db_spec();
   // Prompt for confirmation.
   if (!drush_get_context('DRUSH_SIMULATE')) {
     // @todo odd - maybe for sql-sync.
-    $txt_destination = (isset($db_spec['remote-host']) ? $db_spec['remote-host'] . '/' : '') . $sql->db_spec['database'];
+    $txt_destination = (isset($db_spec['remote-host']) ? $db_spec['remote-host'] . '/' : '') . $db_spec['database'];
     drush_print(dt("Creating database !target. Any possible existing database will be dropped!", array('!target' => $txt_destination)));
 
     if (!drush_confirm(dt('Do you really want to continue?'))) {
@@ -501,7 +506,8 @@ function drush_sql_query($query = NULL) {
 function drush_sql_drop() {
   drush_sql_bootstrap_further();
   $sql = drush_sql_get_class();
-  if (!drush_confirm(dt('Do you really want to drop all tables in the database !db?', array('!db' => $sql->db_spec['database'])))) {
+  $db_spec = $sql->db_spec();
+  if (!drush_confirm(dt('Do you really want to drop all tables in the database !db?', array('!db' => $db_spec['database'])))) {
     return drush_user_abort();
   }
   $tables = $sql->listTables();
@@ -608,39 +614,38 @@ function _drush_sql_get_post_sync_messages() {
  * @param array $db_spec
  *   If known, specify a $db_spec that the class can operate with.
  *
+ * @throws \Drush\Sql\SqlException
+ *
  * @return Drush\Sql\SqlBase
  */
 function drush_sql_get_class($db_spec = NULL) {
   $database = drush_get_option('database', 'default');
   $target = drush_get_option('target', 'default');
 
-  try {
-    // Try a few times to quickly get $db_spec.
-    if ($db_spec) {
-      return drush_get_class('Drush\Sql\Sql', array($db_spec), array($db_spec['driver']));
-    }
-    elseif ($url = drush_get_option('db-url')) {
-      $url =  is_array($url) ? $url[$database] : $url;
-      $db_spec = drush_convert_db_from_db_url($url);
-      $db_spec['db_prefix'] = drush_get_option('db-prefix');
-      return drush_sql_get_class($db_spec);
-    }
-    elseif (($databases = drush_get_option('databases')) && (array_key_exists($database, $databases)) && (array_key_exists($target, $databases[$database]))) {
-      $db_spec = $databases[$database][$target];
-      return drush_sql_get_class($db_spec);
-    }
-    else {
-      // No parameter or options provided. Determine $db_spec ourselves.
-      if ($sqlVersion = drush_get_class('Drush\Sql\Sql', array(), array(drush_drupal_major_version()))) {
-        if ($db_spec = $sqlVersion->get_db_spec()) {
-          return drush_sql_get_class($db_spec);
-        }
+  // Try a few times to quickly get $db_spec.
+  if ($db_spec) {
+    return drush_get_class('Drush\Sql\Sql', array($db_spec), array($db_spec['driver']));
+  }
+  elseif ($url = drush_get_option('db-url')) {
+    $url =  is_array($url) ? $url[$database] : $url;
+    $db_spec = drush_convert_db_from_db_url($url);
+    $db_spec['db_prefix'] = drush_get_option('db-prefix');
+    return drush_sql_get_class($db_spec);
+  }
+  elseif (($databases = drush_get_option('databases')) && (array_key_exists($database, $databases)) && (array_key_exists($target, $databases[$database]))) {
+    $db_spec = $databases[$database][$target];
+    return drush_sql_get_class($db_spec);
+  }
+  else {
+    // No parameter or options provided. Determine $db_spec ourselves.
+    if ($sqlVersion = drush_get_class('Drush\Sql\Sql', array(), array(drush_drupal_major_version()))) {
+      if ($db_spec = $sqlVersion->get_db_spec()) {
+        return drush_sql_get_class($db_spec);
       }
     }
   }
-  catch (\Drush\Sql\SqlException $e) {
-    return drush_set_error('DRUSH_SQL_GET_CLASS', $e->getMessage());
-  }
+
+  throw new \Drush\Sql\SqlException('Unable to find a matching SQL Class. Drush cannot find your database connection details.');
 }
 
 /**

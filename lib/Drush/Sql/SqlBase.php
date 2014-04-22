@@ -14,11 +14,17 @@ class SqlBase {
   public $query_file = '<';
 
   /**
-   * This constructor defaults to honoring CLI options if
-   * not explicitly passed.
+   * Typically, SqlBase objects are contructed via drush_sql_get_class().
    */
   public function __construct($db_spec = NULL, $site_alias_record = NULL) {
     $this->db_spec = $db_spec;
+  }
+
+  /*
+   * Get the current $db_spec.
+   */
+  public function db_spec() {
+    return $this->db_spec;
   }
 
   /**
@@ -30,10 +36,14 @@ class SqlBase {
   /**
    * A string for connecting to a database.
    *
+   * @param bool $hide_password
+   *  If TRUE, DBMS should try to hide password from process list.
+   *  On mysql, that means using --defaults-extra-file to supply the user+password.
+   *
    * @return string
    */
-  public function connect() {
-    return trim($this->command() . ' ' . $this->creds() . ' ' . drush_get_option('extra', $this->query_extra));
+  public function connect($hide_password = TRUE) {
+    return trim($this->command() . ' ' . $this->creds($hide_password) . ' ' . drush_get_option('extra', $this->query_extra));
   }
 
 
@@ -137,6 +147,7 @@ class SqlBase {
    *   A path to save query results to.
    */
   public function query($query, $input_file = NULL, $silent = TRUE, $result_file = '') {
+    $input_file_original = $input_file;
     if ($input_file && drush_file_is_tarball($input_file)) {
       if (drush_shell_exec('gunzip %s', $input_file)) {
         $input_file = trim($input_file, '.gz');
@@ -161,8 +172,8 @@ class SqlBase {
 
     $parts = array(
       $this->command(),
-      $this->silent(),
       $this->creds(),
+      $this->silent(),
       drush_get_option('extra', $this->query_extra),
       $this->query_file,
       drush_escapeshellarg($input_file),
@@ -176,7 +187,7 @@ class SqlBase {
     // In --simulate mode, drush_shell_exec() will show the call to mysql or psql,
     // but the sql query itself is stored in a temp file and not displayed.
     // We will therefore show the query explicitly in the interest of debugging.
-    if (drush_get_context('DRUSH_SIMULATE') && empty($input_file)) {
+    if (drush_get_context('DRUSH_SIMULATE') && empty($input_file_original)) {
       drush_log('sql-query: ' . $query, 'status');
     }
 
@@ -239,10 +250,11 @@ class SqlBase {
    *   in a Windows shell. Set TRUE if the CREATE is not running on the bash command line.
    */
   public function createdb($quoted = FALSE) {
-    // Adjust connection to allow for superuser creds if provided.
     $dbname = $this->db_spec['database'];
+    $sql = $this->createdb_sql($dbname);
+    // Adjust connection to allow for superuser creds if provided.
     $this->su();
-    return $this->query($this->createdb_sql($dbname));
+    return $this->query($sql);
   }
 
   /**
@@ -270,10 +282,14 @@ class SqlBase {
   public function delete() {}
 
   /**
-   * Build a fragment containing credentials and other connection parameters.
+   * Build a fragment connection parameters.
+   *
+   * @param bool $hide_password
+   *  If TRUE, DBMS should try to hide password from process list.
+   *  On mysql, that means using --defaults-extra-file to supply the user+password.
    * @return string
    */
-  public function creds() {}
+  public function creds($hide_password = TRUE) {}
 
   /**
    * The active database driver.

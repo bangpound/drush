@@ -232,7 +232,7 @@ function drush_site_path($path = NULL) {
  * to bootstrap the site itself.  If the implementation of conf_path
  * changes, the site should still bootstrap correctly; the only consequence
  * of this routine not working is that drush configuration files
- * (drushrc.php) stored with the site's settimight not be found.
+ * (drushrc.php) stored with the site's drush folders might not be found.
  */
 function drush_conf_path($server_uri, $require_settings = TRUE) {
   $drupal_root = drush_get_context('DRUSH_SELECTED_DRUPAL_ROOT');
@@ -351,14 +351,19 @@ function drush_valid_drupal_root($path) {
  * Tests the currently loaded database credentials to ensure a database connection can be made.
  */
 function drush_valid_db_credentials() {
-  $sql = drush_sql_get_class();
-  if (!$sqlVersion = drush_get_class('Drush\Sql\Sql', array(), array(drush_drupal_major_version()))) {
+  try {
+    $sql = drush_sql_get_class();
+    if (!$sqlVersion = drush_get_class('Drush\Sql\Sql', array(), array(drush_drupal_major_version()))) {
+      return FALSE;
+    }
+    if (!$sqlVersion->valid_credentials($sql->db_spec())) {
+      return FALSE;
+    }
+    return $sql->query('SELECT 1;');
+  }
+  catch (Exception $e) {
     return FALSE;
   }
-  if (!$sqlVersion->valid_credentials($sql->db_spec)) {
-    return FALSE;
-  }
-  return $sql->query('SELECT 1;');
 }
 
 /**
@@ -606,7 +611,7 @@ function drush_is_local_host($host) {
  * Return the user's home directory.
  */
 function drush_server_home() {
-  // Cannot use $_SERVER superglobal since that's empty during Drush_UnitTestCase
+  // Cannot use $_SERVER superglobal since that's empty during UnitUnishTestCase
   // getenv('HOME') isn't set on windows and generates a Notice.
   $home = getenv('HOME');
   if (empty($home)) {

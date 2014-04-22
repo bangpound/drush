@@ -992,7 +992,6 @@ function _drush_backend_invoke($cmds, $common_backend_options = array(), $contex
       if (array_key_exists('fork', $common_backend_options)) {
         $exec_cmd .= ' --quiet &';
       }
-      drush_log(dt("executing !cmd", array('!cmd' => $exec_cmd)));
       $ret = drush_shell_proc_open($exec_cmd);
     }
     return $ret;
@@ -1106,7 +1105,7 @@ function _drush_backend_generate_command($site_record, $command, $args = array()
   $ssh_options = $site_record['ssh-options'];
   $os = drush_os($site_record);
 
-  if (drush_is_local_host($hostname)) {
+  if (array_key_exists('#check-local', $site_record) && drush_is_local_host($hostname)) {
     $hostname = null;
   }
 
