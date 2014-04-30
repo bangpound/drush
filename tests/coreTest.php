@@ -8,17 +8,23 @@ namespace Unish;
  * @group commands
  */
 class coreCase extends CommandUnishTestCase {
+
+  function setUp() {
+    if (!$this->getSites()) {
+      $this->setUpDrupal(1, TRUE);
+    }
+  }
+
   /**
    * Test to see if rsync @site:%files calculates the %files path correctly.
    * This tests the non-optimized code path in drush_sitealias_resolve_path_references.
    */
   function testRsyncPercentFiles() {
-    $this->setUpDrupal(1, TRUE);
     $root = $this->webroot();
-    $site = key($this->sites);
+    $site = key($this->getSites());
     $options = array(
       'root' => $root,
-      'uri' => key($this->sites),
+      'uri' => key($this->getSites()),
       'simulate' => NULL,
       'include-conf' => NULL,
       'include-vcs' => NULL,
@@ -37,12 +43,11 @@ class coreCase extends CommandUnishTestCase {
    * that avoids a call to backend invoke when evaluating %files works.
    */
   function testPercentFilesOptimization() {
-    $this->setUpDrupal(1, TRUE);
     $root = $this->webroot();
-    $site = key($this->sites);
+    $site = key($this->getSites());
     $options = array(
       'root' => $root,
-      'uri' => key($this->sites),
+      'uri' => key($this->getSites()),
       'simulate' => NULL,
       'include-conf' => NULL,
       'include-vcs' => NULL,
@@ -85,12 +90,11 @@ drush_invoke("version", $arg);
   }
 
   function testDrupalDirectory() {
-    $this->setUpDrupal(1, TRUE);
     $root = $this->webroot();
     $sitewide = $this->drupalSitewideDirectory();
     $options = array(
       'root' => $root,
-      'uri' => key($this->sites),
+      'uri' => key($this->getSites()),
       'yes' => NULL,
       'skip' => NULL,
       'cache' => NULL,
@@ -124,11 +128,10 @@ drush_invoke("version", $arg);
   }
 
   function testCoreRequirements() {
-    $this->setUpDrupal(1, TRUE);
     $root = $this->webroot();
     $options = array(
       'root' => $root,
-      'uri' => key($this->sites),
+      'uri' => key($this->getSites()),
       'pipe' => NULL,
       'ignore' => 'cron,http requests,update_core', // no network access when running in tests, so ignore these
       'strict' => 0, // invoke from script: do not verify options

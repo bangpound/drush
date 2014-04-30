@@ -4,6 +4,13 @@ namespace Unish;
 
 abstract class UnishTestCase extends \PHPUnit_Framework_TestCase {
 
+  /**
+   * A list of Drupal sites that have been recently installed.
+   *
+   * @var array
+   */
+  private static $sites = array();
+
   function __construct($name = NULL, array $data = array(), $dataName = '') {
     $this->_output = FALSE;
     parent::__construct($name, $data, $dataName);
@@ -49,6 +56,7 @@ abstract class UnishTestCase extends \PHPUnit_Framework_TestCase {
     if (file_exists(UNISH_SANDBOX)) {
       unish_file_delete_recursive(UNISH_SANDBOX, TRUE);
     }
+    self::$sites = array();
   }
 
   /**
@@ -210,7 +218,7 @@ abstract class UnishTestCase extends \PHPUnit_Framework_TestCase {
    *   @return stdClass
    */
   function getOutputFromJSON($key = NULL) {
-    $json = json_decode(current($this->_output));
+    $json = json_decode($this->getOutput());
     if (isset($key)) {
       $json = $json->{$key}; // http://stackoverflow.com/questions/2925044/hyphens-in-keys-of-object
     }
@@ -221,10 +229,18 @@ abstract class UnishTestCase extends \PHPUnit_Framework_TestCase {
     return UNISH_SANDBOX . '/web';
   }
 
+  function getSites() {
+    return self::$sites;
+  }
+
   function directory_cache($subdir = '') {
     return getenv('CACHE_PREFIX') . '/' . $subdir;
   }
 
+  /**
+   * @param $env
+   * @return string
+   */
   function db_url($env) {
     return substr(UNISH_DB_URL, 0, 6) == 'sqlite'  ?  "sqlite://sites/$env/files/unish.sqlite" : UNISH_DB_URL . '/unish_' . $env;
   }
@@ -273,14 +289,14 @@ abstract class UnishTestCase extends \PHPUnit_Framework_TestCase {
 
     // Stash details about each site.
     foreach ($sites_subdirs as $subdir) {
-      $this->sites[$subdir] = array(
+      self::$sites[$subdir] = array(
         'db_url' => $this->db_url($subdir),
       );
       // Make an alias for the site
       $alias_definition = array($subdir => array('root' => $root,  'uri' => $subdir));
       file_put_contents(UNISH_SANDBOX . '/etc/drush/' . $subdir . '.alias.drushrc.php', $this->unish_file_aliases($alias_definition));
     }
-    return $this->sites;
+    return self::$sites;
   }
 
   function fetchInstallDrupal($env = 'dev', $install = FALSE, $version_string = UNISH_DRUPAL_MAJOR_VERSION, $profile = NULL) {
@@ -304,7 +320,7 @@ abstract class UnishTestCase extends \PHPUnit_Framework_TestCase {
       );
       $this->drush('pm-download', array("drupal-$version_string"), $options);
       // @todo This path is not proper in D8.
-      mkdir(UNISH_SANDBOX . '/web/sites/all/drush', 0777, 1);
+      mkdir(UNISH_SANDBOX . '/web/sites/all/drush', 0777, TRUE);
     }
 
     // If specified, install Drupal as a multi-site.
